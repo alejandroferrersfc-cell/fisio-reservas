@@ -1,8 +1,10 @@
-import { supabase } from "@/src/lib/supabase";
+import { getSupabaseClient } from "@/src/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const supabase = getSupabaseClient();
+
     const body = await req.json();
     const { start_time, end_time, reason } = body;
 
@@ -27,9 +29,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { error: "Error interno al bloquear" },
+      {
+        error: "Error interno al bloquear",
+        detalle: error instanceof Error ? error.message : "Error desconocido",
+      },
       { status: 500 }
     );
   }

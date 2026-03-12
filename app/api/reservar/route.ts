@@ -1,4 +1,4 @@
-import { supabase } from "@/src/lib/supabase";
+import { getSupabaseClient } from "@/src/lib/supabase";
 import { NextResponse } from "next/server";
 
 function parseLocalDateTime(value: string) {
@@ -11,6 +11,7 @@ function parseLocalDateTime(value: string) {
 
 export async function POST(req: Request) {
   try {
+    const supabase = getSupabaseClient();
     const body = await req.json();
     const { name, phone, start_time, end_time } = body;
 
