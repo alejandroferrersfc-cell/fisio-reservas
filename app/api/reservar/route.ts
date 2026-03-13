@@ -1,4 +1,9 @@
 import { getSupabaseClient } from "@/src/lib/supabase";
+import {
+  getResendClient,
+  getEmailFrom,
+  getPhysioEmail,
+} from "@/src/lib/resend";
 import { NextResponse } from "next/server";
 
 function parseLocalDateTime(value?: string) {
@@ -12,14 +17,26 @@ function parseLocalDateTime(value?: string) {
   return new Date(year, month - 1, day, hour, minute, second);
 }
 
+function formatearFechaHora(fechaTexto: string) {
+  const fecha = parseLocalDateTime(fechaTexto);
+
+  return fecha.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseClient();
 
     const body = await req.json();
-    const { name, phone, start_time, end_time } = body;
+    const { name, phone, email, start_time, end_time } = body;
 
-    if (!name || !phone || !start_time || !end_time) {
+    if (!name || !phone || !email || !start_time || !end_time) {
       return NextResponse.json(
         { error: "Faltan datos obligatorios" },
         { status: 400 }
@@ -61,6 +78,7 @@ export async function POST(req: Request) {
       phone,
       start_time,
       end_time,
+      status: "confirmed",
     });
 
     if (error) {
@@ -68,6 +86,46 @@ export async function POST(req: Request) {
         { error: error.message || "La hora ya no está disponible" },
         { status: 400 }
       );
+    }
+
+    try {
+      const resend = getResendClient();
+      const from = getEmailFrom();
+      const physioEmail = getPhysioEmail();
+      const fechaFormateada = formatearFechaHora(start_time);
+
+      await Promise.all([
+        resend.emails.send({
+          from,
+          to: email,
+          subject: "Reserva confirmada",
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+              <h2>Reserva confirmada</h2>
+              <p>Hola ${name},</p>
+              <p>Tu cita ha sido confirmada correctamente.</p>
+              <p><strong>Fecha y hora:</strong> ${fechaFormateada}</p>
+              <p>Gracias por tu reserva.</p>
+            </div>
+          `,
+        }),
+        resend.emails.send({
+          from,
+          to: physioEmail,
+          subject: "Nueva reserva recibida",
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+              <h2>Nueva reserva</h2>
+              <p><strong>Paciente:</strong> ${name}</p>
+              <p><strong>Teléfono:</strong> ${phone}</p>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Fecha y hora:</strong> ${fechaFormateada}</p>
+            </div>
+          `,
+        }),
+      ]);
+    } catch (emailError) {
+      console.error("Error enviando emails:", emailError);
     }
 
     return NextResponse.json({ success: true });
