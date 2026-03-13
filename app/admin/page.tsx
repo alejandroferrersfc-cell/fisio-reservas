@@ -310,7 +310,6 @@ export default function AdminPage() {
                   <th className="pb-4 text-blue-900">Hora</th>
                   <th className="pb-4 text-blue-900">Paciente</th>
                   <th className="pb-4 text-blue-900">Teléfono</th>
-                  <th className="pb-4 text-blue-900">Estado</th>
                   <th className="pb-4 text-blue-900">Acción</th>
                 </tr>
               </thead>
