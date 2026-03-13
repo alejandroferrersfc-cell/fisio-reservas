@@ -1,17 +1,21 @@
 import { getSupabaseClient } from "@/src/lib/supabase";
 import { NextResponse } from "next/server";
 
-function parseLocalDateTime(value: string) {
-  const [datePart, timePart] = value.split(" ");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, second] = timePart.split(":").map(Number);
+function parseLocalDateTime(value?: string) {
+  if (!value) return new Date("Invalid Date");
 
-  return new Date(year, month - 1, day, hour, minute, second || 0);
+  const normalizado = value.replace("T", " ").replace("Z", "");
+  const [datePart, timePart = "00:00:00"] = normalizado.split(" ");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour = 0, minute = 0, second = 0] = timePart.split(":").map(Number);
+
+  return new Date(year, month - 1, day, hour, minute, second);
 }
 
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseClient();
+
     const body = await req.json();
     const { name, phone, start_time, end_time } = body;
 
@@ -61,15 +65,18 @@ export async function POST(req: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: "La hora ya no está disponible" },
+        { error: error.message || "La hora ya no está disponible" },
         { status: 400 }
       );
     }
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { error: "Error al procesar la reserva" },
+      {
+        error: "Error al procesar la reserva",
+        detalle: error instanceof Error ? error.message : "Error desconocido",
+      },
       { status: 500 }
     );
   }
