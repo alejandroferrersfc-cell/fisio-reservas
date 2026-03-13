@@ -81,12 +81,17 @@ export async function POST(req: Request) {
       status: "confirmed",
     });
 
-    if (error) {
-      return NextResponse.json(
-        { error: error.message || "La hora ya no está disponible" },
-        { status: 400 }
-      );
-    }
+   if (error) {
+  const mensajeAmigable =
+    error.message?.toLowerCase().includes("duplicate key")
+      ? "Este día y esa hora ya han sido reservados por otro cliente."
+      : "La hora ya no está disponible.";
+
+  return NextResponse.json(
+    { error: mensajeAmigable },
+    { status: 400 }
+  );
+}
 
     try {
       const resend = getResendClient();
