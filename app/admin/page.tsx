@@ -317,50 +317,37 @@ export default function AdminPage() {
               <tbody>
                 {citasFiltradas.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-slate-500">
+                    <td colSpan={4} className="py-6 text-slate-500">
                       No hay citas para mostrar
                     </td>
                   </tr>
                 )}
 
                 {citasFiltradas.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-b border-slate-100 hover:bg-blue-50"
-                  >
-                    <td className="py-4 text-slate-800">
-                      {formatearFecha(c.start_time)}
-                    </td>
-                    <td className="py-4 font-medium text-slate-900">
-                      {c.name}
-                    </td>
-                    <td className="py-4 text-slate-700">
-                      {c.phone}
-                    </td>
-                    <td className="py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          c.status === "cancelled"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {c.status === "cancelled" ? "Cancelada" : "Confirmada"}
-                      </span>
-                    </td>
-                    <td className="py-4">
-                      {c.status !== "cancelled" && (
-                        <button
-                          type="button"
-                          onClick={() => cancelarCita(c.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-                        >
-                          Cancelar cita
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+  <tr
+    key={c.id}
+    className="border-b border-slate-100 hover:bg-blue-50"
+  >
+    <td className="py-4 text-slate-800">
+      {formatearFecha(c.start_time)}
+    </td>
+    <td className="py-4 font-medium text-slate-900">
+      {c.name}
+    </td>
+    <td className="py-4 text-slate-700">
+      {c.phone}
+    </td>
+    <td className="py-4">
+      <button
+        type="button"
+        onClick={() => cancelarCita(c.id)}
+        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+      >
+        Cancelar cita
+      </button>
+    </td>
+  </tr>
+))}
               </tbody>
             </table>
           </div>
