@@ -81,14 +81,19 @@ export async function POST(req: Request) {
       status: "confirmed",
     });
 
-   if (error) {
-  const mensajeAmigable =
-    error.message?.toLowerCase().includes("duplicate key")
-      ? "Este día y esa hora ya han sido reservados por otro cliente."
-      : "La hora ya no está disponible.";
+if (error) {
+  const rawMessage = error.message?.toLowerCase() || "";
+  const rawCode = (error as { code?: string })?.code || "";
+
+  const esReservaDuplicada =
+    rawCode === "23505" || rawMessage.includes("duplicate key");
 
   return NextResponse.json(
-    { error: mensajeAmigable },
+    {
+      error: esReservaDuplicada
+        ? "Este día y esa hora ya han sido reservados por otro cliente."
+        : "La hora ya no está disponible.",
+    },
     { status: 400 }
   );
 }
