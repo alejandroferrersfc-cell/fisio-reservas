@@ -8,6 +8,7 @@ export async function GET() {
     const { data: reservas, error: errorReservas } = await supabase
       .from("appointments")
       .select("*")
+      .eq("status", "confirmed")
       .order("start_time", { ascending: true });
 
     const { data: bloqueos, error: errorBloqueos } = await supabase
