@@ -9,6 +9,8 @@ export function middleware(request: NextRequest) {
     "/api/bloquear",
     "/api/cancelar-cita",
     "/api/eliminar-bloqueo",
+    "/api/disponibilidades",
+    "/api/eliminar-disponibilidad",
   ];
 
   const isProtected = protectedPaths.some((path) =>
@@ -31,5 +33,12 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/bloquear", "/api/cancelar-cita", "/api/eliminar-bloqueo"],
+  matcher: [
+    "/admin/:path*",
+    "/api/bloquear",
+    "/api/cancelar-cita",
+    "/api/eliminar-bloqueo",
+    "/api/disponibilidades",
+    "/api/eliminar-disponibilidad",
+  ],
 };
