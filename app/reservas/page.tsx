@@ -1,21 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-type Reserva = {
-  id: string;
-  name: string;
-  phone: string;
-  start_time: string;
-  end_time: string;
-};
-
-type Bloqueo = {
-  id: string;
-  start_time: string;
-  end_time: string;
-  reason?: string | null;
-};
+import { useEffect, useState } from "react";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -27,34 +12,27 @@ function toLocalDateTimeString(date: Date) {
   )} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }
 
-function parseLocalDateTime(value?: string) {
-  if (!value) return new Date("Invalid Date");
-
-  const normalizado = value.replace("T", " ").replace("Z", "");
-  const [datePart, timePart = "00:00:00"] = normalizado.split(" ");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour = 0, minute = 0, second = 0] = timePart.split(":").map(Number);
-
-  return new Date(year, month - 1, day, hour, minute, second);
-}
-
 export default function ReservasPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
-  const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
+  const [horasDisponibles, setHorasDisponibles] = useState<string[]>([]);
   const [mensaje, setMensaje] = useState("");
 
   useEffect(() => {
+    if (!fecha) {
+      setHorasDisponibles([]);
+      return;
+    }
+
     cargarDisponibilidad();
-  }, []);
+  }, [fecha]);
 
   async function cargarDisponibilidad() {
     try {
-      const res = await fetch("/api/disponibilidad");
+      const res = await fetch(`/api/disponibilidad?fecha=${fecha}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -62,61 +40,10 @@ export default function ReservasPage() {
         return;
       }
 
-      setReservas(data.reservas || []);
-      setBloqueos(data.bloqueos || []);
+      setHorasDisponibles(data.horasDisponibles || []);
     } catch {
       setMensaje("No se pudo cargar la disponibilidad");
     }
-  }
-
-  const horas = useMemo(() => {
-    if (!fecha) return [];
-
-    const lista: string[] = [];
-    for (let h = 9; h < 14; h++) {
-      lista.push(`${String(h).padStart(2, "0")}:00`);
-    }
-    for (let h = 16; h < 20; h++) {
-      lista.push(`${String(h).padStart(2, "0")}:00`);
-    }
-    return lista;
-  }, [fecha]);
-
-  function obtenerBloqueoDeHora(h: string) {
-    const inicio = new Date(`${fecha}T${h}:00`);
-    const fin = new Date(inicio.getTime() + 60 * 60 * 1000);
-
-    const bloqueo = bloqueos.find((b) => {
-      if (!b.start_time || !b.end_time) return false;
-
-      const inicioBloqueo = parseLocalDateTime(b.start_time).getTime();
-      const finBloqueo = parseLocalDateTime(b.end_time).getTime();
-
-      return inicio.getTime() < finBloqueo && fin.getTime() > inicioBloqueo;
-    });
-
-    return bloqueo || null;
-  }
-
-  function estaOcupada(h: string) {
-    const inicio = new Date(`${fecha}T${h}:00`);
-    const fin = new Date(inicio.getTime() + 60 * 60 * 1000);
-
-    const reservada = reservas.some((r) => {
-      if (!r.start_time) return false;
-      return parseLocalDateTime(r.start_time).getTime() === inicio.getTime();
-    });
-
-    const bloqueo = bloqueos.find((b) => {
-      if (!b.start_time || !b.end_time) return false;
-
-      const inicioBloqueo = parseLocalDateTime(b.start_time).getTime();
-      const finBloqueo = parseLocalDateTime(b.end_time).getTime();
-
-      return inicio.getTime() < finBloqueo && fin.getTime() > inicioBloqueo;
-    });
-
-    return reservada || !!bloqueo;
   }
 
   async function reservar() {
@@ -124,14 +51,6 @@ export default function ReservasPage() {
 
     if (!name || !phone || !email || !fecha || !hora) {
       setMensaje("Completa todos los campos.");
-      return;
-    }
-
-    const bloqueo = obtenerBloqueoDeHora(hora);
-    if (bloqueo) {
-      setMensaje(
-        `No disponible: ${bloqueo.reason || "bloqueado por el fisioterapeuta"}`
-      );
       return;
     }
 
@@ -168,6 +87,23 @@ export default function ReservasPage() {
     await cargarDisponibilidad();
   }
 
+  const horasBase = [
+    "08:00",
+    "09:00",
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
+    "18:00",
+    "19:00",
+    "20:00",
+    "21:00",
+  ];
+
   return (
     <main className="min-h-screen bg-blue-50 py-10">
       <div className="max-w-3xl mx-auto px-6">
@@ -182,7 +118,7 @@ export default function ReservasPage() {
               placeholder="Nombre"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
             />
 
             <input
@@ -190,7 +126,7 @@ export default function ReservasPage() {
               placeholder="Teléfono"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
             />
 
             <input
@@ -198,7 +134,7 @@ export default function ReservasPage() {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
             />
 
             <input
@@ -209,7 +145,7 @@ export default function ReservasPage() {
                 setHora("");
                 setMensaje("");
               }}
-              className="rounded-xl border border-blue-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
             />
           </div>
 
@@ -220,44 +156,36 @@ export default function ReservasPage() {
               </h2>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {horas.map((h) => {
-                  const ocupada = estaOcupada(h);
-                  const bloqueo = obtenerBloqueoDeHora(h);
-                  const motivoBloqueo = bloqueo?.reason || "No disponible";
+                {horasBase.map((h) => {
+                  const disponible = horasDisponibles.includes(h);
 
                   return (
                     <button
                       key={h}
                       type="button"
-                      disabled={ocupada}
+                      disabled={!disponible}
                       onClick={() => {
-                        if (!ocupada) setHora(h);
+                        if (disponible) setHora(h);
                       }}
-                      title={
-                        bloqueo
-                          ? motivoBloqueo
-                          : ocupada
-                          ? "Hora ocupada"
-                          : "Disponible"
-                      }
                       className={`rounded-xl px-4 py-3 border font-medium transition ${
-                        bloqueo
-                          ? "bg-slate-300 text-slate-600 border-slate-300 cursor-not-allowed line-through"
-                          : ocupada
+                        !disponible
                           ? "bg-slate-200 text-slate-400 border-slate-200 cursor-not-allowed"
                           : hora === h
                           ? "bg-blue-600 text-white border-blue-600"
                           : "bg-white text-slate-900 border-blue-200 hover:bg-blue-50"
                       }`}
                     >
-                      <div>{h}</div>
-                      {bloqueo && (
-                        <div className="text-xs mt-1">{motivoBloqueo}</div>
-                      )}
+                      {h}
                     </button>
                   );
                 })}
               </div>
+
+              {horasDisponibles.length === 0 && (
+                <p className="mt-4 text-slate-600">
+                  No hay horas disponibles para ese día.
+                </p>
+              )}
             </div>
           )}
 
