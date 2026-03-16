@@ -7,7 +7,6 @@ type Cita = {
   name: string;
   phone: string;
   start_time: string;
-  status?: string;
 };
 
 type Bloqueo = {
@@ -17,21 +16,38 @@ type Bloqueo = {
   reason: string | null;
 };
 
+type Disponibilidad = {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  active: boolean;
+};
+
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
 function inputToLocalDateTimeString(value: string) {
   const date = new Date(value);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }
 
 export default function AdminPage() {
   const [citas, setCitas] = useState<Cita[]>([]);
   const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
+  const [disponibilidades, setDisponibilidades] = useState<Disponibilidad[]>([]);
+
   const [inicio, setInicio] = useState("");
   const [fin, setFin] = useState("");
   const [motivo, setMotivo] = useState("");
+
+  const [fechaDisponibilidad, setFechaDisponibilidad] = useState("");
+  const [horaInicio, setHoraInicio] = useState("12:00");
+  const [horaFin, setHoraFin] = useState("17:00");
+
   const [mensaje, setMensaje] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
 
@@ -40,7 +56,7 @@ export default function AdminPage() {
   }, []);
 
   async function cargarTodo() {
-    await Promise.all([cargarCitas(), cargarBloqueos()]);
+    await Promise.all([cargarCitas(), cargarBloqueos(), cargarDisponibilidades()]);
   }
 
   async function cargarCitas() {
@@ -53,6 +69,66 @@ export default function AdminPage() {
     const res = await fetch("/api/disponibilidad");
     const data = await res.json();
     setBloqueos(data.bloqueos || []);
+  }
+
+  async function cargarDisponibilidades() {
+    const res = await fetch("/api/disponibilidades");
+    const data = await res.json();
+    setDisponibilidades(Array.isArray(data) ? data : []);
+  }
+
+  async function guardarDisponibilidad() {
+    setMensaje("");
+
+    if (!fechaDisponibilidad || !horaInicio || !horaFin) {
+      setMensaje("Debes completar la disponibilidad.");
+      return;
+    }
+
+    const res = await fetch("/api/disponibilidades", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        date: fechaDisponibilidad,
+        start_time: horaInicio,
+        end_time: horaFin,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMensaje(data.error || "No se pudo guardar la disponibilidad.");
+      return;
+    }
+
+    setMensaje("Disponibilidad guardada correctamente.");
+    setFechaDisponibilidad("");
+    await cargarDisponibilidades();
+  }
+
+  async function eliminarDisponibilidad(id: string) {
+    const confirmar = confirm("¿Seguro que quieres eliminar esta disponibilidad?");
+    if (!confirmar) return;
+
+    const res = await fetch("/api/eliminar-disponibilidad", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo eliminar la disponibilidad");
+      return;
+    }
+
+    await cargarDisponibilidades();
   }
 
   async function bloquearRango() {
@@ -160,22 +236,6 @@ export default function AdminPage() {
     });
   }, [citas, filtroFecha]);
 
-  const citasHoy = useMemo(() => {
-    const hoy = new Date();
-    const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, "0");
-    const dd = String(hoy.getDate()).padStart(2, "0");
-    const hoyStr = `${yyyy}-${mm}-${dd}`;
-
-    return citas.filter((c) => {
-      const fechaCita = new Date(c.start_time);
-      const y = fechaCita.getFullYear();
-      const m = String(fechaCita.getMonth() + 1).padStart(2, "0");
-      const d = String(fechaCita.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}` === hoyStr && c.status === "confirmed";
-    }).length;
-  }, [citas]);
-
   return (
     <main className="min-h-screen bg-blue-50 py-10">
       <div className="max-w-7xl mx-auto px-6">
@@ -193,24 +253,72 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
-            <p className="text-sm text-slate-500">Citas confirmadas hoy</p>
-            <p className="text-4xl font-bold text-blue-900 mt-2">{citasHoy}</p>
-          </div>
+        <div className="grid lg:grid-cols-2 gap-8 mb-8">
+          <section className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
+            <h2 className="text-2xl font-semibold text-blue-900 mb-5">
+              Disponibilidad por fecha
+            </h2>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
-            <p className="text-sm text-slate-500">Total de bloqueos</p>
-            <p className="text-4xl font-bold text-blue-900 mt-2">{bloqueos.length}</p>
-          </div>
+            <div className="grid md:grid-cols-3 gap-4 mb-4">
+              <input
+                type="date"
+                value={fechaDisponibilidad}
+                onChange={(e) => setFechaDisponibilidad(e.target.value)}
+                className="rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
+              />
 
-          <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
-            <p className="text-sm text-slate-500">Total de citas</p>
-            <p className="text-4xl font-bold text-blue-900 mt-2">{citas.length}</p>
-          </div>
-        </div>
+              <input
+                type="time"
+                value={horaInicio}
+                onChange={(e) => setHoraInicio(e.target.value)}
+                className="rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
+              />
 
-        <div className="grid lg:grid-cols-2 gap-8">
+              <input
+                type="time"
+                value={horaFin}
+                onChange={(e) => setHoraFin(e.target.value)}
+                className="rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={guardarDisponibilidad}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition"
+            >
+              Añadir disponibilidad
+            </button>
+
+            <div className="mt-6 space-y-3 max-h-[300px] overflow-auto">
+              {disponibilidades.length === 0 && (
+                <p className="text-slate-500">No hay disponibilidades guardadas.</p>
+              )}
+
+              {disponibilidades.map((d) => (
+                <div
+                  key={d.id}
+                  className="rounded-xl border border-blue-100 bg-blue-50 p-4 flex items-center justify-between gap-4"
+                >
+                  <div>
+                    <p className="font-semibold text-blue-900">{d.date}</p>
+                    <p className="text-slate-700">
+                      {d.start_time} - {d.end_time}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => eliminarDisponibilidad(d.id)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
             <h2 className="text-2xl font-semibold text-blue-900 mb-5">
               Bloquear días y horas
@@ -221,14 +329,14 @@ export default function AdminPage() {
                 type="datetime-local"
                 value={inicio}
                 onChange={(e) => setInicio(e.target.value)}
-                className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
               />
 
               <input
                 type="datetime-local"
                 value={fin}
                 onChange={(e) => setFin(e.target.value)}
-                className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
               />
 
               <input
@@ -236,7 +344,7 @@ export default function AdminPage() {
                 placeholder="Motivo del bloqueo"
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
-                className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-blue-200 px-4 py-3 text-slate-900"
               />
 
               <button
@@ -249,14 +357,8 @@ export default function AdminPage() {
 
               {mensaje && <p className="text-blue-800 font-medium">{mensaje}</p>}
             </div>
-          </section>
 
-          <section className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
-            <h2 className="text-2xl font-semibold text-blue-900 mb-5">
-              Bloqueos guardados
-            </h2>
-
-            <div className="space-y-4 max-h-[420px] overflow-auto">
+            <div className="mt-6 space-y-4 max-h-[300px] overflow-auto">
               {bloqueos.length === 0 && (
                 <p className="text-slate-500">No hay bloqueos todavía.</p>
               )}
@@ -289,7 +391,7 @@ export default function AdminPage() {
           </section>
         </div>
 
-        <section className="mt-8 bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
+        <section className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
             <h2 className="text-2xl font-semibold text-blue-900">
               Citas
@@ -324,30 +426,30 @@ export default function AdminPage() {
                 )}
 
                 {citasFiltradas.map((c) => (
-  <tr
-    key={c.id}
-    className="border-b border-slate-100 hover:bg-blue-50"
-  >
-    <td className="py-4 text-slate-800">
-      {formatearFecha(c.start_time)}
-    </td>
-    <td className="py-4 font-medium text-slate-900">
-      {c.name}
-    </td>
-    <td className="py-4 text-slate-700">
-      {c.phone}
-    </td>
-    <td className="py-4">
-      <button
-        type="button"
-        onClick={() => cancelarCita(c.id)}
-        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-      >
-        Cancelar cita
-      </button>
-    </td>
-  </tr>
-))}
+                  <tr
+                    key={c.id}
+                    className="border-b border-slate-100 hover:bg-blue-50"
+                  >
+                    <td className="py-4 text-slate-800">
+                      {formatearFecha(c.start_time)}
+                    </td>
+                    <td className="py-4 font-medium text-slate-900">
+                      {c.name}
+                    </td>
+                    <td className="py-4 text-slate-700">
+                      {c.phone}
+                    </td>
+                    <td className="py-4">
+                      <button
+                        type="button"
+                        onClick={() => cancelarCita(c.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+                      >
+                        Cancelar cita
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
